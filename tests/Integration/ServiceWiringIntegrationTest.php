@@ -69,6 +69,15 @@ class ServiceWiringIntegrationTest extends IntegrationTestCase
         $this->assertInstanceOf(TenantConnectionSwitcher::class, $switcher);
     }
 
+    public function testTenantConnectionSwitcherInterfaceResolvesToDefault(): void
+    {
+        $byInterface = $this->getContainer()->get(\Hakam\MultiTenancyBundle\Port\TenantConnectionSwitcherInterface::class);
+        $byClass = $this->getContainer()->get(TenantConnectionSwitcher::class);
+
+        $this->assertInstanceOf(\Hakam\MultiTenancyBundle\Port\TenantConnectionSwitcherInterface::class, $byInterface);
+        $this->assertSame($byClass, $byInterface, 'Interface alias must resolve to the same instance as the concrete class');
+    }
+
     public function testCommandsAreRegistered(): void
     {
         $application = new \Symfony\Bundle\FrameworkBundle\Console\Application(static::$kernel);

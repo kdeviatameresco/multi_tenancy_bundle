@@ -15,6 +15,7 @@ use Hakam\MultiTenancyBundle\Doctrine\DBAL\TenantDriverMiddleware;
 use Hakam\MultiTenancyBundle\Doctrine\ORM\TenantEntityManager;
 use Hakam\MultiTenancyBundle\EventListener\DbSwitchEventListener;
 use Hakam\MultiTenancyBundle\Port\TenantConfigProviderInterface;
+use Hakam\MultiTenancyBundle\Port\TenantConnectionSwitcherInterface;
 use Hakam\MultiTenancyBundle\Port\TenantDatabaseManagerInterface;
 use Hakam\MultiTenancyBundle\Purger\TenantORMPurgerFactory;
 use Hakam\MultiTenancyBundle\Services\TenantDbConfigurationInterface;
@@ -84,6 +85,9 @@ return static function (ContainerConfigurator $container): void {
         ])
         ->tag('kernel.reset', ['method' => 'reset']);
 
+    $services->alias(TenantConnectionSwitcherInterface::class, TenantConnectionSwitcher::class)
+        ->private();
+
     // Event listener for DB switching
     $services->set(DbSwitchEventListener::class)
         ->tag('kernel.event_listener', [
@@ -92,7 +96,7 @@ return static function (ContainerConfigurator $container): void {
         ])
         ->tag('kernel.reset', ['method' => 'reset'])
         ->args([
-            service(TenantConnectionSwitcher::class),
+            service(TenantConnectionSwitcherInterface::class),
             service(TenantConfigProviderInterface::class),
             service('tenant_entity_manager'),
             '%env(DATABASE_URL)%',

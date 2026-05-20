@@ -3,15 +3,17 @@
 namespace Hakam\MultiTenancyBundle\Doctrine\DBAL;
 
 use Doctrine\DBAL\Connection;
-use Symfony\Contracts\Service\ResetInterface;
+use Hakam\MultiTenancyBundle\Port\TenantConnectionSwitcherInterface;
 
 /**
- * Coordinates dynamic tenant database switching via DBAL middleware.
+ * Default TenantConnectionSwitcherInterface implementation: coordinates
+ * dynamic tenant database switching via DBAL 4 middleware and reflection
+ * on Connection::$params.
  *
  * Replaces the old TenantConnection (wrapper_class) approach that was
  * incompatible with DBAL 4.
  */
-final class TenantConnectionSwitcher implements ResetInterface
+final class TenantConnectionSwitcher implements TenantConnectionSwitcherInterface
 {
     private readonly \ReflectionProperty $paramsProperty;
     private readonly array $initialParams;

@@ -3,8 +3,8 @@
 namespace Hakam\MultiTenancyBundle\Tests\Unit\EventListener;
 
 use Hakam\MultiTenancyBundle\Config\TenantConnectionConfigDTO;
-use Hakam\MultiTenancyBundle\Doctrine\DBAL\TenantConnectionSwitcher;
 use Hakam\MultiTenancyBundle\Doctrine\ORM\TenantEntityManager;
+use Hakam\MultiTenancyBundle\Port\TenantConnectionSwitcherInterface;
 use Hakam\MultiTenancyBundle\Enum\DatabaseStatusEnum;
 use Hakam\MultiTenancyBundle\Enum\DriverTypeEnum;
 use Hakam\MultiTenancyBundle\Event\SwitchDbEvent;
@@ -18,7 +18,7 @@ class DbSwitchEventListenerTest extends TestCase
     public function testOnSwitchDb()
     {
         // mock the necessary dependencies
-        $mockConnectionSwitcher = $this->createMock(TenantConnectionSwitcher::class);
+        $mockConnectionSwitcher = $this->createMock(TenantConnectionSwitcherInterface::class);
         $mockTenantDbConfigProvider = $this->createMock(TenantConfigProviderInterface::class);
         $mockTenantEntityManager = $this->createMock(TenantEntityManager::class);
 
@@ -61,7 +61,7 @@ class DbSwitchEventListenerTest extends TestCase
 
     public function testSkipsSwitchWhenAlreadyConnectedToSameTenant(): void
     {
-        $mockConnectionSwitcher = $this->createMock(TenantConnectionSwitcher::class);
+        $mockConnectionSwitcher = $this->createMock(TenantConnectionSwitcherInterface::class);
         $mockTenantDbConfigProvider = $this->createMock(TenantConfigProviderInterface::class);
         $mockTenantEntityManager = $this->createMock(TenantEntityManager::class);
 
@@ -102,7 +102,7 @@ class DbSwitchEventListenerTest extends TestCase
 
     public function testSwitchesWhenSameDbNameButDifferentHost(): void
     {
-        $mockConnectionSwitcher = $this->createMock(TenantConnectionSwitcher::class);
+        $mockConnectionSwitcher = $this->createMock(TenantConnectionSwitcherInterface::class);
         $mockTenantDbConfigProvider = $this->createMock(TenantConfigProviderInterface::class);
         $mockTenantEntityManager = $this->createMock(TenantEntityManager::class);
 

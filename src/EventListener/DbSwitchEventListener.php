@@ -2,11 +2,11 @@
 
 namespace Hakam\MultiTenancyBundle\EventListener;
 
-use Hakam\MultiTenancyBundle\Doctrine\DBAL\TenantConnectionSwitcher;
 use Hakam\MultiTenancyBundle\Doctrine\ORM\TenantEntityManager;
 use Hakam\MultiTenancyBundle\Event\SwitchDbEvent;
 use Hakam\MultiTenancyBundle\Event\TenantSwitchedEvent;
 use Hakam\MultiTenancyBundle\Port\TenantConfigProviderInterface;
+use Hakam\MultiTenancyBundle\Port\TenantConnectionSwitcherInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -16,7 +16,7 @@ final class DbSwitchEventListener implements ResetInterface
     private ?string $currentTenantDbName = null;
 
     public function __construct(
-        private readonly TenantConnectionSwitcher $connectionSwitcher,
+        private readonly TenantConnectionSwitcherInterface $connectionSwitcher,
         private readonly TenantConfigProviderInterface $tenantConfigProvider,
         private readonly TenantEntityManager $tenantEntityManager,
         private readonly string $databaseURL,
