@@ -90,6 +90,7 @@ return static function (ContainerConfigurator $container): void {
             'event' => 'Hakam\MultiTenancyBundle\Event\SwitchDbEvent',
             'method' => 'onSwitchDb',
         ])
+        ->tag('kernel.reset', ['method' => 'reset'])
         ->args([
             service(TenantConnectionSwitcher::class),
             service(TenantConfigProviderInterface::class),

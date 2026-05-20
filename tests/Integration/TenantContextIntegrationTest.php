@@ -86,6 +86,41 @@ class TenantContextIntegrationTest extends IntegrationTestCase
         $this->assertNull($context->getTenantId());
     }
 
+    public function testContainerResetClearsDbSwitchListenerState(): void
+    {
+        // Regression: DbSwitchEventListener tracks currentTenantIdentifier and
+        // short-circuits re-switches to the same tenant. In worker-mode
+        // runtimes (FrankenPHP, Roadrunner) Symfony calls services_resetter
+        // between requests; without the kernel.reset tag on the listener,
+        // its private state survives across requests and the next switch to
+        // the same tenant silently no-ops.
+        $tenant = $this->insertTenantConfig(
+            dbName: 'reset_listener_db',
+            status: DatabaseStatusEnum::DATABASE_MIGRATED,
+            driver: DriverTypeEnum::SQLITE,
+        );
+
+        /** @var EventDispatcherInterface $dispatcher */
+        $dispatcher = $this->getContainer()->get('event_dispatcher');
+
+        $capturedEvents = [];
+        $dispatcher->addListener(TenantSwitchedEvent::class, function (TenantSwitchedEvent $event) use (&$capturedEvents) {
+            $capturedEvents[] = $event;
+        });
+
+        $dispatcher->dispatch(new SwitchDbEvent((string) $tenant->getId()));
+        $this->assertCount(1, $capturedEvents, 'First switch dispatches event');
+
+        $this->getContainer()->get('services_resetter')->reset();
+
+        $dispatcher->dispatch(new SwitchDbEvent((string) $tenant->getId()));
+        $this->assertCount(
+            2,
+            $capturedEvents,
+            'Second switch to the same tenant after services_resetter->reset() must dispatch — proves DbSwitchEventListener was reset and did not early-return on stale currentTenantIdentifier',
+        );
+    }
+
     public function testTenantSwitchedEventCarriesPreviousTenantInfo(): void
     {
         $tenantA = $this->insertTenantConfig(
