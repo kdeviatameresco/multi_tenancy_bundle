@@ -476,3 +476,21 @@ You can also override automatic resolution by dispatching `SwitchDbEvent` manual
 ### Resolution Happening Too Late
 
 The listener runs with priority `32` (after router, before controller). If you need earlier resolution, create a custom listener with higher priority.
+
+### Resolving Tenant From the Authenticated User
+
+By default the listener runs at priority `32`, which is **before** Symfony's firewall (priority `8`). Resolvers that need the authenticated `User` (for example: read tenant from `User::getCurrentTenant()`, or authorize an `X-Tenant-ID` against the user's memberships) won't have one available at that priority.
+
+Set `listener_priority` to a value lower than `8` so resolution happens after authentication:
+
+```yaml
+hakam_multi_tenancy:
+    resolver:
+        enabled: true
+        strategy: header
+        listener_priority: 6   # runs after the firewall (priority 8)
+```
+
+At priority `6`, `Security::getUser()` returns the authenticated user — your `TenantResolverInterface::resolve()` can consult the user's memberships, validate the requested tenant against them, and throw `403` for cross-tenant access. Excluded paths (`/api/login`, `/health`, etc.) still bypass resolution regardless of priority.
+
+Trade-off: at the lower priority, anything running between priority `8` and `32` (notably the controller resolver) executes without a tenant context. If you rely on a tenant-aware connection during firewall authentication itself (rare — JWT lookups, password validation), keep the default `32`.

@@ -4,7 +4,7 @@ namespace Hakam\MultiTenancyBundle\Tests\Integration;
 
 use Hakam\MultiTenancyBundle\EventListener\DbSwitchEventListener;
 use Hakam\MultiTenancyBundle\Port\TenantConfigProviderInterface;
-use Hakam\MultiTenancyBundle\Tests\Integration\Fixtures\Service\InMemoryTenantConfigProvider;
+use Hakam\MultiTenancyBundle\Test\InMemoryTenantConfigProvider;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 class CustomProviderOverrideTest extends IntegrationTestCase

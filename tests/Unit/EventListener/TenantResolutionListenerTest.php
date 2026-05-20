@@ -11,8 +11,6 @@ use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
-use Symfony\Component\HttpKernel\KernelEvents;
-
 class TenantResolutionListenerTest extends TestCase
 {
     private TenantResolverInterface&MockObject $resolver;
@@ -24,14 +22,6 @@ class TenantResolutionListenerTest extends TestCase
         $this->resolver = $this->createMock(TenantResolverInterface::class);
         $this->eventDispatcher = $this->createMock(EventDispatcherInterface::class);
         $this->kernel = $this->createMock(HttpKernelInterface::class);
-    }
-
-    public function testGetSubscribedEvents(): void
-    {
-        $events = TenantResolutionListener::getSubscribedEvents();
-        
-        $this->assertArrayHasKey(KernelEvents::REQUEST, $events);
-        $this->assertSame(['onKernelRequest', 32], $events[KernelEvents::REQUEST]);
     }
 
     public function testOnKernelRequestResolvesTenantAndDispatchesEvent(): void
@@ -157,9 +147,9 @@ class TenantResolutionListenerTest extends TestCase
         $request = Request::create('http://example.com/');
         $event = new RequestEvent($this->kernel, $request, HttpKernelInterface::MAIN_REQUEST);
         
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Unable to resolve tenant: resolver does not support this request.');
-        
+        $this->expectException(\Hakam\MultiTenancyBundle\Exception\TenantResolutionException::class);
+        $this->expectExceptionMessageMatches('/does not support GET .*host=example\.com/');
+
         $listener->onKernelRequest($event);
     }
 
@@ -182,9 +172,9 @@ class TenantResolutionListenerTest extends TestCase
         $request = Request::create('http://example.com/');
         $event = new RequestEvent($this->kernel, $request, HttpKernelInterface::MAIN_REQUEST);
         
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Unable to resolve tenant: no tenant identifier found.');
-        
+        $this->expectException(\Hakam\MultiTenancyBundle\Exception\TenantResolutionException::class);
+        $this->expectExceptionMessageMatches('/could not extract a tenant identifier from GET .*host=example\.com/');
+
         $listener->onKernelRequest($event);
     }
 

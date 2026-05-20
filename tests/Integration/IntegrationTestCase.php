@@ -9,12 +9,15 @@ use Hakam\MultiTenancyBundle\Enum\DatabaseStatusEnum;
 use Hakam\MultiTenancyBundle\Enum\DriverTypeEnum;
 use Hakam\MultiTenancyBundle\Tests\Integration\Fixtures\Entity\TenantDbConfig;
 use Hakam\MultiTenancyBundle\Tests\Integration\Kernel\IntegrationTestKernel;
+use Hakam\MultiTenancyBundle\Tests\Shared\RestoresErrorHandlersTrait;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\KernelInterface;
 
 abstract class IntegrationTestCase extends TestCase
 {
+    use RestoresErrorHandlersTrait;
+
     protected static ?KernelInterface $kernel = null;
     protected static ?ContainerInterface $container = null;
 
@@ -40,6 +43,7 @@ abstract class IntegrationTestCase extends TestCase
 
     protected function setUp(): void
     {
+        $this->markHandlerStackHeight();
         $this->bootKernel();
         $this->createMainSchema();
     }
@@ -51,6 +55,8 @@ abstract class IntegrationTestCase extends TestCase
             static::$kernel = null;
             static::$container = null;
         }
+
+        $this->restoreHandlerStackHeight();
     }
 
     protected function createMainSchema(): void

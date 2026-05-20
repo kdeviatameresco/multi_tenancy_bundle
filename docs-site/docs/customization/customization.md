@@ -96,7 +96,24 @@ hakam_multi_tenancy:
 
 When set to a value other than the default `hakam_tenant_config_provider.doctrine`, the bundle will alias `TenantConfigProviderInterface` to your service. The Doctrine-specific `tenant_database_className` and `tenant_database_identifier` settings are skipped in this case.
 
+`tenant_connection.url` also becomes optional with a custom provider — your provider supplies per-tenant DSNs at runtime, so the bundle substitutes a placeholder DSN for the DBAL bootstrap. The placeholder is never actually dialed because the bundle's DBAL middleware overrides every `connect()` call with the per-tenant configuration. Useful when tenants live on multiple physical database hosts and no single default URL is meaningful.
+
 > **Note:** Your service must be registered in the container (either via `services.yaml` or autoconfigure).
+
+### Testing helper: `InMemoryTenantConfigProvider`
+
+For unit and integration tests that don't want a real metadata database, the bundle ships `Hakam\MultiTenancyBundle\Test\InMemoryTenantConfigProvider`. Register it as your test environment's `tenant_config_provider` and seed identifiers via fluent builders:
+
+```php
+use Hakam\MultiTenancyBundle\Test\InMemoryTenantConfigProvider;
+
+$provider = (new InMemoryTenantConfigProvider())
+    ->withMysqlTenant(123, 'tenant_db_123', host: 'tenant-db.example.com', user: 'app', password: 'secret')
+    ->withPostgresTenant(456, 'tenant_db_456')
+    ->withSqliteTenant('tenant_alpha');                          // defaults to :memory:
+```
+
+Lookup for an unregistered identifier raises `TenantNotFoundException` with the list of known identifiers in the message — actionable in test output without rerunning. The helper lives under `src/Test/` so consumer projects can use it without depending on the bundle's dev autoload.
 
 ---
 

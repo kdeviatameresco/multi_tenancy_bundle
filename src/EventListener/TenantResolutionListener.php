@@ -3,21 +3,21 @@
 namespace Hakam\MultiTenancyBundle\EventListener;
 
 use Hakam\MultiTenancyBundle\Event\SwitchDbEvent;
+use Hakam\MultiTenancyBundle\Exception\TenantResolutionException;
 use Hakam\MultiTenancyBundle\Port\TenantResolverInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
-use Symfony\Component\HttpKernel\KernelEvents;
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
  * Listens to kernel.request events and automatically resolves the tenant.
  *
- * This listener runs early in the request lifecycle (before controllers)
- * and dispatches SwitchDbEvent to switch the database context.
+ * Registration is handled by HakamMultiTenancyExtension, which owns the
+ * event listener tag (including priority) so it can be driven from bundle
+ * configuration.
  *
  * @author Ramy Hakam <pencilsoft1@gmail.com>
  */
-class TenantResolutionListener implements EventSubscriberInterface
+class TenantResolutionListener
 {
     public const REQUEST_ATTRIBUTE_TENANT = '_tenant';
     public const REQUEST_ATTRIBUTE_TENANT_RESOLVED = '_tenant_resolved';
@@ -28,13 +28,6 @@ class TenantResolutionListener implements EventSubscriberInterface
         private readonly bool $throwOnMissing = false,
         private readonly array $excludedPaths = [],
     ) {
-    }
-
-    public static function getSubscribedEvents(): array
-    {
-        return [
-            KernelEvents::REQUEST => ['onKernelRequest', 32],
-        ];
     }
 
     public function onKernelRequest(RequestEvent $event): void
@@ -61,7 +54,7 @@ class TenantResolutionListener implements EventSubscriberInterface
 
         if (!$this->resolver->supports($request)) {
             if ($this->throwOnMissing) {
-                throw new \RuntimeException('Unable to resolve tenant: resolver does not support this request.');
+                throw TenantResolutionException::unsupportedRequest($request, $this->resolver::class);
             }
             return;
         }
@@ -70,7 +63,7 @@ class TenantResolutionListener implements EventSubscriberInterface
 
         if ($tenantId === null) {
             if ($this->throwOnMissing) {
-                throw new \RuntimeException('Unable to resolve tenant: no tenant identifier found.');
+                throw TenantResolutionException::identifierMissing($request, $this->resolver::class);
             }
             return;
         }

@@ -3,6 +3,7 @@
 namespace Hakam\MultiTenancyBundle\Tests\Unit\Adapter;
 
 use Hakam\MultiTenancyBundle\Enum\DatabaseStatusEnum;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Hakam\MultiTenancyBundle\Adapter\DefaultDsnGenerator;
 use Hakam\MultiTenancyBundle\Config\TenantConnectionConfigDTO;
@@ -20,7 +21,7 @@ class DefaultDsnGeneratorTest extends TestCase
     /**
      * @return array<string, array{0: TenantConnectionConfigDTO, 1: string}>
      */
-    public function provideGenerate(): array
+    public static function provideGenerate(): array
     {
         return [
             'mysql with password' => [
@@ -104,9 +105,7 @@ class DefaultDsnGeneratorTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider provideGenerate
-     */
+    #[DataProvider('provideGenerate')]
     public function testGenerate(TenantConnectionConfigDTO $dto, string $expected): void
     {
         $dsn = $this->generator->generate($dto);
@@ -116,7 +115,7 @@ class DefaultDsnGeneratorTest extends TestCase
     /**
      * @return array<string, array{0: TenantConnectionConfigDTO, 1: string}>
      */
-    public function provideGenerateMaintenance(): array
+    public static function provideGenerateMaintenance(): array
     {
         return [
             'mysql maintenance' => [
@@ -161,9 +160,7 @@ class DefaultDsnGeneratorTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider provideGenerateMaintenance
-     */
+    #[DataProvider('provideGenerateMaintenance')]
     public function testGenerateMaintenanceDsn(TenantConnectionConfigDTO $dto, string $expected): void
     {
         $dsn = $this->generator->generateMaintenanceDsn($dto);

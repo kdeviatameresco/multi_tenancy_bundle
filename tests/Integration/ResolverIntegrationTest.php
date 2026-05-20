@@ -183,6 +183,35 @@ class ResolverIntegrationTest extends IntegrationTestCase
         $this->assertCount(0, $capturedEvents, 'SwitchDbEvent should not fire for excluded path');
     }
 
+    public function testDefaultListenerPriorityRunsBeforeFirewall(): void
+    {
+        $this->bootWithResolverConfig([
+            'enabled' => true,
+            'strategy' => 'header',
+        ]);
+
+        $dispatcher = $this->getContainer()->get('event_dispatcher');
+        $listener = $this->getContainer()->get(TenantResolutionListener::class);
+
+        $priority = $dispatcher->getListenerPriority('kernel.request', [$listener, 'onKernelRequest']);
+        $this->assertSame(32, $priority, 'Default priority should preserve the historical pre-firewall position');
+    }
+
+    public function testCustomListenerPriorityIsHonored(): void
+    {
+        $this->bootWithResolverConfig([
+            'enabled' => true,
+            'strategy' => 'header',
+            'listener_priority' => 6,
+        ]);
+
+        $dispatcher = $this->getContainer()->get('event_dispatcher');
+        $listener = $this->getContainer()->get(TenantResolutionListener::class);
+
+        $priority = $dispatcher->getListenerPriority('kernel.request', [$listener, 'onKernelRequest']);
+        $this->assertSame(6, $priority, 'Custom listener_priority must reach the registered tag');
+    }
+
     public function testThrowOnMissingThrowsWhenNoTenantResolved(): void
     {
         $this->bootWithResolverConfig([
@@ -197,8 +226,8 @@ class ResolverIntegrationTest extends IntegrationTestCase
         $listener = $this->getContainer()->get(TenantResolutionListener::class);
         $event = new RequestEvent(static::$kernel, $request, HttpKernelInterface::MAIN_REQUEST);
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessageMatches('/resolve tenant/i');
+        $this->expectException(\Hakam\MultiTenancyBundle\Exception\TenantResolutionException::class);
+        $this->expectExceptionMessageMatches('/HeaderResolver does not support GET \/some-page/');
 
         $listener->onKernelRequest($event);
     }

@@ -4,7 +4,6 @@ namespace Hakam\MultiTenancyBundle\DependencyInjection;
 
 use Hakam\MultiTenancyBundle\Cache\TenantAwareCacheDecorator;
 use Hakam\MultiTenancyBundle\Context\TenantContextInterface;
-use Hakam\MultiTenancyBundle\Doctrine\DBAL\TenantConnection;
 use Hakam\MultiTenancyBundle\EventListener\TenantResolutionListener;
 use Hakam\MultiTenancyBundle\Port\TenantResolverInterface;
 use Hakam\MultiTenancyBundle\Resolver\ChainResolver;
@@ -19,7 +18,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
-use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
+use Symfony\Component\DependencyInjection\Loader\PhpFileLoader;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\Filesystem\Filesystem;
 
@@ -29,16 +28,26 @@ use Symfony\Component\Filesystem\Filesystem;
 class HakamMultiTenancyExtension extends Extension implements PrependExtensionInterface
 {
     /**
+     * Placeholder DSN used when a custom TenantConfigProviderInterface is wired
+     * and no tenant_connection.url is configured. DBAL needs a syntactically
+     * valid URL to instantiate the bootstrap Connection, but the middleware
+     * overrides every connect() call so this is never actually dialed.
+     */
+    private const TENANT_BOOTSTRAP_PLACEHOLDER_URL = 'mysql://placeholder:placeholder@127.0.0.1:3306/placeholder';
+
+    /**
      * @throws \Exception
      */
     public function load(array $configs, ContainerBuilder $container): void
     {
-        $loader = new XmlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
-        $loader->load('services.xml');
+        $loader = new PhpFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
+        $loader->load('services.php');
 
         $configuration = $this->getConfiguration($configs, $container);
 
         $configs = $this->processConfiguration($configuration, $configs);
+
+        $configs['tenant_connection']['url'] = $this->resolveTenantConnectionUrl($configs);
 
         // set the required parameter
         $container->setParameter('hakam.tenant_db_credentials', ['db_url' => $configs['tenant_connection']['url']]);
@@ -77,6 +86,7 @@ class HakamMultiTenancyExtension extends Extension implements PrependExtensionIn
         $options = $resolverConfig['options'] ?? [];
         $throwOnMissing = $resolverConfig['throw_on_missing'] ?? false;
         $excludedPaths = $resolverConfig['excluded_paths'] ?? [];
+        $listenerPriority = $resolverConfig['listener_priority'] ?? 32;
 
         // Create resolver based on strategy
         $resolverServiceId = $this->createResolverService($strategy, $options, $container);
@@ -89,7 +99,11 @@ class HakamMultiTenancyExtension extends Extension implements PrependExtensionIn
             $throwOnMissing,
             $excludedPaths,
         ]);
-        $listenerDefinition->addTag('kernel.event_subscriber');
+        $listenerDefinition->addTag('kernel.event_listener', [
+            'event' => 'kernel.request',
+            'method' => 'onKernelRequest',
+            'priority' => $listenerPriority,
+        ]);
         $container->setDefinition(TenantResolutionListener::class, $listenerDefinition);
 
         // Create alias for TenantResolverInterface
@@ -212,12 +226,8 @@ class HakamMultiTenancyExtension extends Extension implements PrependExtensionIn
                 'connections' => [
                     'tenant' => [
                         'driver' => $dbSwitcherConfig['tenant_connection']['driver'],
-                        'url' => $dbSwitcherConfig['tenant_connection']['url'],
-                        'host' => $dbSwitcherConfig['tenant_connection']['host'],
-                        'port' => $dbSwitcherConfig['tenant_connection']['port'],
+                        'url' => $this->resolveTenantConnectionUrl($dbSwitcherConfig),
                         'charset' => $dbSwitcherConfig['tenant_connection']['charset'],
-                        'server_version' => $dbSwitcherConfig['tenant_connection']['server_version'],
-                        'wrapper_class' => TenantConnection::class,
                     ],
                 ],
             ];
@@ -276,5 +286,28 @@ class HakamMultiTenancyExtension extends Extension implements PrependExtensionIn
         if (isset($dbSwitchConfig['tenant_entity_manager']['dql'])) {
             $tenantEntityManagerConfig['entity_managers']['tenant']['dql'] = $dbSwitchConfig['tenant_entity_manager']['dql'];
         }
+    }
+
+    /**
+     * Pick the bootstrap DSN for the DBAL tenant connection. Three cases:
+     *  - Explicit tenant_connection.url is set → use it verbatim.
+     *  - Custom TenantConfigProviderInterface registered → use a placeholder, because
+     *    per-tenant DSNs come from the provider at runtime and the bootstrap URL
+     *    is never actually dialed (the DBAL middleware overrides every connect()).
+     *  - Default Doctrine provider with no URL → fall back to %env(DATABASE_URL)%,
+     *    matching the conventional Symfony app layout.
+     */
+    private function resolveTenantConnectionUrl(array $config): string
+    {
+        $configuredUrl = $config['tenant_connection']['url'] ?? null;
+        if ($configuredUrl !== null && $configuredUrl !== '') {
+            return $configuredUrl;
+        }
+
+        $usesDefaultProvider = ($config['tenant_config_provider'] ?? null) === 'hakam_tenant_config_provider.doctrine';
+
+        return $usesDefaultProvider
+            ? '%env(DATABASE_URL)%'
+            : self::TENANT_BOOTSTRAP_PLACEHOLDER_URL;
     }
 }

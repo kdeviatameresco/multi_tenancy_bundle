@@ -10,7 +10,7 @@ use Hakam\MultiTenancyBundle\Event\SwitchDbEvent;
 use Hakam\MultiTenancyBundle\Port\TenantConfigProviderInterface;
 use Hakam\MultiTenancyBundle\Port\TenantDatabaseManagerInterface;
 use Hakam\MultiTenancyBundle\Tests\Integration\Fixtures\Entity\TenantProduct;
-use Hakam\MultiTenancyBundle\Tests\Integration\Fixtures\Service\InMemoryTenantConfigProvider;
+use Hakam\MultiTenancyBundle\Test\InMemoryTenantConfigProvider;
 use Hakam\MultiTenancyBundle\Tests\Integration\Kernel\IntegrationTestKernel;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -22,7 +22,7 @@ class ConfigManagerOverrideTest extends RealDatabaseTestCase
 
     protected function bootKernel(): void
     {
-        $tenantBootDbName = $this->driver === 'pdo_pgsql' ? 'postgres' : '';
+        $tenantBootDbName = $this->driver === 'pdo_pgsql' ? 'postgres' : $this->ensureBootDatabase();
         $pass = $this->password !== '' ? ':' . $this->password : '';
         $scheme = $this->driver === 'pdo_pgsql' ? 'pgsql' : 'mysql';
         $dsn = sprintf(
@@ -42,7 +42,6 @@ class ConfigManagerOverrideTest extends RealDatabaseTestCase
                 'host' => $this->host,
                 'port' => (string) $this->port,
                 'charset' => 'utf8',
-                'server_version' => $this->serverVersion,
             ],
         ];
 
