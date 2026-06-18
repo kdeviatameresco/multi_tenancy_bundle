@@ -107,6 +107,25 @@ class DoctrineTenantDatabaseManager implements TenantDatabaseManagerInterface
         }
     }
 
+    public function dropTenantDatabase(TenantConnectionConfigDTO $tenantConnectionConfigDTO): bool
+    {
+        try {
+            $tenantConnection = $this->doctrineDBALConnectionGenerator->generateMaintenanceConnection($tenantConnectionConfigDTO);
+            $schemaManager = $tenantConnection->createSchemaManager();
+            if (in_array($tenantConnectionConfigDTO->dbname, $schemaManager->listDatabases(), true)) {
+                $schemaManager->dropDatabase($tenantConnectionConfigDTO->dbname);
+            }
+            $tenantConnection->close();
+            return true;
+        } catch (Throwable $e) {
+            throw new MultiTenancyException(sprintf(
+                'Unable to drop tenant database %s: %s',
+                $tenantConnectionConfigDTO->dbname,
+                $e->getMessage()
+            ), $e->getCode(), $e);
+        }
+    }
+
     public function updateTenantDatabaseStatus(mixed $identifier, DatabaseStatusEnum $status): bool
     {
         $tenantDbConfig = $this->tenantDatabaseRepository->findOneBy([$this->tenantDbIdentifier => $identifier]);

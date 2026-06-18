@@ -4,8 +4,9 @@ namespace Hakam\MultiTenancyBundle\Command;
 
 use Doctrine\Bundle\FixturesBundle\Command\LoadDataFixturesDoctrineCommand;
 use Doctrine\Bundle\FixturesBundle\Loader\SymfonyFixturesLoader;
-use Doctrine\ORM\EntityManagerInterface;
+use Hakam\MultiTenancyBundle\Enum\DatabaseStatusEnum;
 use Hakam\MultiTenancyBundle\Event\TenantBootstrappedEvent;
+use Hakam\MultiTenancyBundle\Port\TenantDatabaseManagerInterface;
 use Hakam\MultiTenancyBundle\Purger\TenantORMPurgerFactory;
 use Hakam\MultiTenancyBundle\Services\TenantFixtureLoader;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -23,7 +24,6 @@ class LoadTenantFixtureCommand  extends TenantCommand
 {
     use CommandTrait;
     private  SymfonyFixturesLoader  $fixturesLoader;
-    private EntityManagerInterface $tenantEntityManager;
 
     private  array $purgerFactories= [];
 
@@ -32,6 +32,7 @@ class LoadTenantFixtureCommand  extends TenantCommand
         private readonly ContainerInterface $container,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly TenantFixtureLoader $tenantFixtureLoader,
+        private readonly TenantDatabaseManagerInterface $tenantDatabaseManager,
     ) {
         parent::__construct($registry, $container, $eventDispatcher);
         $this->fixturesLoader = new SymfonyFixturesLoader();
@@ -40,8 +41,8 @@ class LoadTenantFixtureCommand  extends TenantCommand
     protected function configure(): void
     {
         $this
-            ->setDescription('Load tenant fixtures to the tenant database')
-            ->addArgument('dbId', InputArgument::OPTIONAL, 'Tenant DB Identifier to load fixtures into.')
+            ->setDescription('Load tenant fixtures into one tenant database, or into all migrated tenants when no dbId is given')
+            ->addArgument('dbId', InputArgument::OPTIONAL, 'Tenant DB Identifier to load fixtures into. Omit to load into ALL migrated tenant databases.')
             ->addOption('append', null, InputOption::VALUE_NONE)
             ->addOption('group', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY)
             ->addOption('purger', null, InputOption::VALUE_REQUIRED, 'The purger to use for this command', 'tenant')
@@ -51,6 +52,31 @@ class LoadTenantFixtureCommand  extends TenantCommand
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $dbId = $input->getArgument('dbId');
+
+        // Single tenant when a dbId is given.
+        if (null !== $dbId) {
+            return $this->loadFixturesForTenant($dbId, $input, $output);
+        }
+
+        // No dbId: load fixtures into every migrated tenant database (mirrors
+        // tenant:database:create --all and tenant:migrations:migrate init, which loop the
+        // tenant list in the command rather than in a single switched connection).
+        foreach ($this->tenantDatabaseManager->getTenantDbListByDatabaseStatus(DatabaseStatusEnum::DATABASE_MIGRATED) as $tenant) {
+            if (0 !== $this->loadFixturesForTenant($tenant->identifier, $input, $output)) {
+                return 1;
+            }
+        }
+
+        return 0;
+    }
+
+    private function loadFixturesForTenant(mixed $dbId, InputInterface $input, OutputInterface $output): int
+    {
+        // Switch the tenant connection to this tenant before loading (dispatches SwitchDbEvent).
+        $input->setArgument('dbId', $dbId);
+        $this->getDependencyFactory($input);
+
         $doctrineFixturesCommand = new LoadDataFixturesDoctrineCommand(
             $this->fixturesLoader,
             $this->registry,
@@ -78,7 +104,7 @@ class LoadTenantFixtureCommand  extends TenantCommand
                 iterator_to_array($this->tenantFixtureLoader->getFixtures())
             );
             $this->eventDispatcher->dispatch(new TenantBootstrappedEvent(
-                $input->getArgument('dbId'),
+                $dbId,
                 null,
                 $loadedFixtures
             ));
@@ -89,7 +115,6 @@ class LoadTenantFixtureCommand  extends TenantCommand
 
     protected function initialize(InputInterface $input, OutputInterface $output): void
     {
-        $this->tenantEntityManager = $this->getDependencyFactory($input)->getEntityManager();
         foreach ($this->tenantFixtureLoader->getFixtures() as $fixture) {
             $this->fixturesLoader->addFixture($fixture);
         }

@@ -60,6 +60,17 @@ interface TenantDatabaseManagerInterface
      */
     public function createTenantDatabase(TenantConnectionConfigDTO $tenantConnectionConfigDTO): bool;
 
+    /**
+     * Drop a tenant database based on the provided configuration.
+     *
+     * Mirror of {@see createTenantDatabase()}. Implementations should be idempotent
+     * (dropping a database that does not exist is a no-op, not an error).
+     *
+     * @param TenantConnectionConfigDTO $tenantConnectionConfigDTO The configuration for the tenant database to drop.
+     * @return bool True if the database was dropped (or did not exist), false otherwise.
+     */
+    public function dropTenantDatabase(TenantConnectionConfigDTO $tenantConnectionConfigDTO): bool;
+
     public function addNewTenantDbConfig(TenantConnectionConfigDTO $dto): TenantConnectionConfigDTO;
 
     // update Db Status

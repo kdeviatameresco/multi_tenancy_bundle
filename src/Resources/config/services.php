@@ -5,6 +5,7 @@ use Hakam\MultiTenancyBundle\Adapter\Doctrine\DoctrineTenantConfigProvider;
 use Hakam\MultiTenancyBundle\Adapter\Doctrine\DoctrineTenantDatabaseManager;
 use Hakam\MultiTenancyBundle\Adapter\Doctrine\TenantDBALConnectionGenerator;
 use Hakam\MultiTenancyBundle\Command\CreateDatabaseCommand;
+use Hakam\MultiTenancyBundle\Command\DropDatabaseCommand;
 use Hakam\MultiTenancyBundle\Command\DiffCommand;
 use Hakam\MultiTenancyBundle\Command\LoadTenantFixtureCommand;
 use Hakam\MultiTenancyBundle\Command\MigrateCommand;
@@ -123,6 +124,12 @@ return static function (ContainerConfigurator $container): void {
             service('event_dispatcher'),
         ]);
 
+    $services->set(DropDatabaseCommand::class)
+        ->tag('console.command')
+        ->args([
+            service(TenantDatabaseManagerInterface::class),
+        ]);
+
     $services->set(MigrateCommand::class)
         ->tag('console.command')
         ->args([
@@ -140,7 +147,7 @@ return static function (ContainerConfigurator $container): void {
                 service('service_container'),
                 service('event_dispatcher'),
                 service('hakam_tenant_fixtures_loader.service'),
-                tagged_iterator('doctrine.fixtures.purger_factory', 'alias'),
+                service(TenantDatabaseManagerInterface::class),
             ]);
     }
 
